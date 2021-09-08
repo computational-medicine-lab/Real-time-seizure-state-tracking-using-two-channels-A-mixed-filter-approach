@@ -1,0 +1,83 @@
+clear all; clc; close all;
+[Dirs,SSID,SS]=datalocation();
+numsbj=length(unique(SSID(:,1)));
+
+for isub = 1 : 1
+    fprintf('%2.fth Subject\n\n',isub)
+    clearvars -except SSID numsbj isub
+    indx=find(SSID(:,1)==isub,1,'first');
+    data1=load(['..\Extracter\ExtractedData\all\sbj', ...
+        num2str(SSID(indx,1),'%02.f'), 'sess' num2str(SSID(indx,2),...
+        '%02.f') '.mat']);
+    data2=load(['..\Extracter\ExtractedData\all\sbj', ...
+        num2str(SSID(indx+1,1),'%02.f'), 'sess' num2str(SSID(indx+1,2),...
+        '%02.f') '.mat']);
+    feat1=data1.Data.feat; labels1=data1.Data.labels; Wind=data1.Data.Wind; srate=256; clear data1; 
+    feat2=data2.Data.feat; labels2=data2.Data.labels; clear data2; 
+    cost=[0,1;length(nonseiz)./length(seiz),0];
+    %% Feature Selection
+    countcorr=[];
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)));
+            confeat=(confeat-min(confeat(1:59*srate)))./(max(confeat(1:59*srate))-min(confeat(1:59*srate)));
+            confeat=confeat-mean(confeat(1:59*srate));
+            
+            temp0=labels(Wind+1:end);
+            temp1{counter}=fitcdiscr(confeat,temp0,'Cost',cost);
+            temp2=[]; temp2=predict(temp1{counter},confeat)';
+            tp = sum((temp2 == 1) & (temp0 == 1));
+            fp = sum((temp2 == 1) & (temp0 == 0));
+            fn = sum((temp2 == 0) & (temp0 == 1));
+            acc(counter)=sum(temp2==temp0)/length(temp2);
+            precision(counter) = tp / (tp + fp);
+            recall(counter) = tp / (tp + fn);
+            F1(counter) = (2 * precision(counter) * recall(counter)) / (precision(counter) + recall(counter));
+            if isnan(F1(counter)), F1(counter)=0; end
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(F1);  
+    bestfeat{1,1}=countcorr_info{temp(end)}; %Continuous Feature
+    
+    clearvars -except feat labels bestfeat isub SSID numsbj indx Wind srate cost
+    counter= 1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            confeat=[];confeat=squeeze((feat(i,j,Wind+1:end)));
+            confeat=(confeat-min(confeat(1:59*srate)))./(max(confeat(1:59*srate))-min(confeat(1:59*srate)));
+            confeat=confeat-mean(confeat(1:59*srate));
+            
+            temp0=labels(Wind+1:end);
+            temp1{counter}=fitcdiscr(confeat,temp0,'Cost',cost);
+            temp2=[]; temp2=predict(temp1{counter},confeat)';
+            tp = sum((temp2 == 1) & (temp0 == 1));
+            fp = sum((temp2 == 1) & (temp0 == 0));
+            fn = sum((temp2 == 0) & (temp0 == 1));
+            acc(counter)=sum(temp2==temp0)/length(temp2);
+            precision(counter) = tp / (tp + fp);
+            recall(counter) = tp / (tp + fn);
+            F1(counter) = (2 * precision(counter) * recall(counter)) / (precision(counter) + recall(counter));
+            if isnan(F1(counter)), F1(counter)=0; end
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(recall); 
+    bestfeat{2,1}=countcorr_info{temp(end)}; %Binary Feature
+    
+    counter=0;
+    while (str2num(bestfeat{2,1}(10:12))==str2num(bestfeat{1,1}(10:12))) && (str2num(bestfeat{2,1}(32:34))==str2num(bestfeat{1,1}(32:34)))
+        counter=counter+1;
+        bestfeat{2,1}=binarycorr_info{temp(end-counter)};
+     end
+    
+    bestfeat{3,1}=temp1{temp(end-counter)};
+    
+    save(['BestFeatures\sbj',num2str( SSID(indx,1),'%02.f')],'bestfeat');
+end

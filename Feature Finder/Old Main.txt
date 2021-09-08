@@ -1,0 +1,266 @@
+clear all; clc; close all;
+[Dirs,SSID,SS]=datalocation();
+numsbj=length(unique(SSID(:,1)));
+
+for isub = 1 : 1
+    fprintf('%2.fth Subject\n\n',isub)
+    clearvars -except SSID numsbj isub
+    indx=find(SSID(:,1)==isub,1,'first');
+    load(['..\Extracter\ExtractedData\all\sbj', ...
+        num2str(SSID(indx,1),'%02.f'), 'sess' num2str(SSID(indx,2),...
+        '%02.f') '.mat']);
+    feat=Data.feat; labels=Data.labels; Wind=Data.Wind; clear Data; 
+    load(['..\Extracter\ExtractedData\all\sbj', ...
+        num2str(SSID(indx,1),'%02.f'), 'sess' num2str(SSID(indx+2,2),...
+        '%02.f') '.mat']);
+%% Continues Feature
+    clabels=labelconverter(labels,256); 
+    countcorr=[]; counter=1;
+        nonseiz=find(labels(Wind+1:end)==0)+Wind; seiz=find(labels(Wind+1:end)==1)+Wind;
+%     for i = 1 : size(feat,1)
+%         for j = 1 : size(feat,2)
+%             confeat=[];confeat=squeeze(log(feat(i,j,Wind*256+1:end)./feat(i,j,Wind*256+1)));
+% %             confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+%             temp=[]; temp=corrcoef(confeat,clabels(Wind*256+1:end));
+%             countcorr(counter)=mean(abs(confeat).*clabels(Wind*256+1:end)')-...
+%                 mean(abs(confeat) .* (1-clabels(Wind*256+1:end)'));
+%             countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+%                 ' ; Frequency Band : ', num2str(j,'%02.f')];
+%             counter=counter+1;
+%         end
+%     end
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)));
+            confeat=(confeat-min(confeat(257:600)))./(max(confeat(257:600))-min(confeat(257:600)));
+            temp0=labels(Wind+1:end);
+            temp1=[]; temp1=fitcdiscr(confeat,temp0);
+            temp2=[]; temp2=predict(temp1,confeat)';
+            tp = sum((temp2 == 1) & (temp0 == 1));
+            fp = sum((temp2 == 1) & (temp0 == 0));
+            fn = sum((temp2 == 0) & (temp0 == 1));
+            acc(counter)=sum(temp2==temp0)/length(temp2);
+            precision(counter) = tp / (tp + fp);
+            recall(counter) = tp / (tp + fn);
+            F1(counter) = (2 * precision(counter) * recall(counter)) / (precision(counter) + recall(counter));
+            if isnan(F1(counter)), F1(counter)=0; end
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(F1); 
+    bestfeat{12,1}=countcorr_info{temp(end)};
+    
+    temp=[]; [~,temp]=sort(precision); 
+    bestfeat{13,1}=countcorr_info{temp(end)};
+    
+    temp=[]; [~,temp]=sort(recall); 
+    bestfeat{14,1}=countcorr_info{temp(end)};
+    
+    temp=[]; [~,temp]=sort(acc); 
+    bestfeat{15,1}=countcorr_info{temp(end)};
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)./feat(i,j,Wind+1)));
+            confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+            ah(counter)=max(abs(confeat(seiz-Wind)))-min(abs(confeat(nonseiz-Wind)));
+            al(counter)=mean(abs(confeat(seiz-Wind)))-mean(abs(confeat(nonseiz-Wind)))-max(abs(confeat(nonseiz-Wind)));
+            
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(ah); 
+    bestfeat{10,1}=countcorr_info{temp(end)};
+    
+    temp=[]; [~,temp]=sort(al); 
+    bestfeat{11,1}=countcorr_info{temp(end)};
+
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)./feat(i,j,Wind+1)));
+            confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+            templ=mean(abs(confeat(seiz-Wind)));
+            temph=max(abs(confeat(seiz-Wind)))-max(abs(confeat(nonseiz-Wind)));
+            temp=[];
+            temp=corrcoef(confeat,clabels(Wind+1:end));
+            ah(counter)=abs(temp(1,2))^(10/temph);
+            al(counter)=abs(temp(1,2))^(2*templ);
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(ah); 
+    bestfeat{8,1}=countcorr_info{temp(end)};
+    
+    temp=[]; [~,temp]=sort(al); 
+    bestfeat{9,1}=countcorr_info{temp(end)};
+
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+%             confeat=[];confeat=squeeze(log(feat(i,j,Wind*256+1:end)));
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)./feat(i,j,Wind+1)));
+            confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+            templ=min(abs(confeat(seiz-Wind)));
+            temph=max(abs(confeat(seiz-Wind)))-min(abs(confeat(nonseiz-Wind)));
+            temp=[];
+            temp=corrcoef(confeat,clabels(Wind+1:end));
+            countcorr(counter)=abs(temp(1,2))*temph/templ;
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(countcorr); 
+    bestfeat{7,1}=countcorr_info{temp(end)};
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{7,1}(10:12)),str2double(bestfeat{3,1}(32:34)),:))));
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+%             confeat=[];confeat=squeeze(log(feat(i,j,Wind*256+1:end)));
+            confeat=[];confeat=squeeze(log(feat(i,j,Wind+1:end)./feat(i,j,Wind+1)));
+            confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+            temp=[];
+            temp=corrcoef(confeat,clabels(Wind+1:end));
+            countcorr(counter)=abs(temp(1,2));
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(countcorr); 
+    bestfeat{3,1}=countcorr_info{temp(end)};
+    counter=1;
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{3,1}(10:12)),str2double(bestfeat{3,1}(32:34)),:))));
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+%             confeat=[];confeat=squeeze(log(feat(i,j,Wind*256+1:end)));
+            confeat=[];confeat=squeeze(feat(i,j,Wind+1:end));
+            confeat=(confeat-min(confeat))./(max(confeat)-min(confeat));
+            temp=[];
+            temp=corrcoef(confeat,clabels(Wind+1:end));
+            countcorr(counter)=abs(temp(1,2));
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(countcorr); 
+    bestfeat{4,1}=countcorr_info{temp(end)};
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{4,1}(10:12)),str2double(bestfeat{4,1}(32:34)),:))));
+    
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            contemp=[];contemp=squeeze(feat(i,j,:)-feat(i,j,Wind+1));
+            a1(counter)=mean(abs(squeeze((contemp(nonseiz)))));
+            a2(counter)=max(abs(squeeze((contemp(seiz)))))-max(abs(squeeze((contemp(nonseiz)))));
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(a1); 
+    bestfeat{1,1}=countcorr_info{temp(1)};
+%     bestfeat{3,1}=countcorr_info{temp(1)};
+    temp=[]; [~,temp]=sort(a2); 
+    bestfeat{2,1}=countcorr_info{temp(end)};
+%     bestfeat{4,1}=countcorr_info{temp(end-1)};
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{2,1}(10:12)),str2double(bestfeat{2,1}(32:34)),:))));
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{1,1}(10:12)),str2double(bestfeat{1,1}(32:34)),:))));
+%     figure; plot(log(squeeze(feat(str2double(bestfeat{2,1}(10:12)),str2double(bestfeat{2,1}(32:34)),:))) .* squeeze(feat(str2double(bestfeat{1,1}(10:12)),str2double(bestfeat{1,1}(32:34)),:)));
+
+    counter=1;
+    for i = 1 : size(feat,1)
+        for j = 1 : size(feat,2)
+            a1(counter)=mean(abs(squeeze(log(feat(i,j,nonseiz)))));
+            a2(counter)=max(abs(squeeze(log(feat(i,j,seiz)))))-min(abs(squeeze(log(feat(i,j,nonseiz)))));
+            countcorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+                ' ; Frequency Band : ', num2str(j,'%02.f')];
+            counter=counter+1;
+        end
+    end
+    temp=[]; [~,temp]=sort(a1); 
+    bestfeat{5,1}=countcorr_info{temp(1)};
+%     bestfeat{3,1}=countcorr_info{temp(1)};
+    temp=[]; [~,temp]=sort(a2); 
+    bestfeat{6,1}=countcorr_info{temp(end)};
+%     bestfeat{4,1}=countcorr_info{temp(end-1)};
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{5,1}(10:12)),str2double(bestfeat{5,1}(32:34)),:))));
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{6,1}(10:12)),str2double(bestfeat{6,1}(32:34)),:))));
+%     figure; plot(squeeze(log(feat(str2double(bestfeat{5,1}(10:12)),str2double(bestfeat{5,1}(32:34)),:))) .* squeeze(log(feat(str2double(bestfeat{6,1}(10:12)),str2double(bestfeat{6,1}(32:34)),:))));
+
+
+for i = 1 : size(bestfeat,1)
+    figure; 
+    feat1=[]; 
+    feat1=squeeze(log(feat(str2double(bestfeat{i,1}(10:12)),str2double(bestfeat{i,1}(32:34)),257:end)));
+    feat1=(feat1-min(feat1(1:59*256)))./(max(feat1(1:59*256))-min(feat1(1:59*256)));
+    feat1=feat1-mean(feat(1:59*256));
+    subplot(121);
+    plot(feat1)
+    feat1=[]; 
+    feat1=squeeze(log(Data.feat(str2double(bestfeat{i,1}(10:12)),str2double(bestfeat{i,1}(32:34)),257:end)));
+    feat1=(feat1-min(feat1(1:59*256)))./(max(feat1(1:59*256))-min(feat1(1:59*256)));
+    feat1=feat1-mean(feat(1:59*256));
+    subplot(122)
+    plot(feat1);
+end
+    
+    %% Binary Feature
+    clearvars -except feat labels bestfeat isub SSID numsbj indx Wind a1 a2
+%     ttemp=squeeze(feat(str2double(bestfeat{3,1}(10:12))
+%     clearvars -except feat labels bestfeat isub SSID numsbj indx Wind
+%     seiz1=find(labels==1,1,'first');  seiz2=find(labels==1,1,'last'); 
+%     possible_pr=95:0.1:99.9;
+%     binaryacc=[]; counter=1;
+%     for i = 1 : size(feat,1)
+%         for j = 1 : size(feat,2)          [str2double(bestfeat{1,1}(10:12)),str2double(bestfeat{1,1}(32:34))];
+%             for z = 1 : length(possible_pr)
+%                 thr=prctile(squeeze(feat(i,j,:))-feat(i,j,Wind*256+1),possible_pr(z));
+%                 temp1=[]; temp1=squeeze(feat(i,j,:)-feat(i,j,Wind*256+1))>thr;
+% 
+% %                 thr=prctile(squeeze(feat(i,j,:)),possible_pr(z));
+% %                 temp1=[]; temp1=squeeze(feat(i,j,:))>thr;
+%                 temp2=corrcoef(temp1',labels);
+%                 binarycorr(counter)=temp2(1,2);
+%                 binaryacc(counter)=sum(temp1'==labels)/length(labels);
+%                 binarycorr_info{counter}=['Channel : ', num2str(i,'%02.f'),...
+%                     ' ; Frequency Band : ', num2str(j,'%02.f'),...
+%                     ' ; Percentile : ', num2str(possible_pr(z),'%03.1f')];
+%                 counter=counter+1;
+%             end
+%         end
+%     end
+%     [~,temp]=sort(binaryacc);
+%     bestfeat{2,1}=binarycorr_info{temp(end)};
+%     counter=1;
+%     while (str2num(bestfeat{2,1}(10:12))==str2num(bestfeat{1,1}(10:12))) && (str2num(bestfeat{2,1}(32:34))==str2num(bestfeat{1,1}(32:34)))
+%         bestfeat{2,1}=binarycorr_info{temp(end-counter)};
+%         counter=counter+1;
+%     end
+%     
+%     [~,temp]=sort(binarycorr);
+%     bestfeat{3,1}=binarycorr_info{temp(end)};
+%     counter=1;
+%     while (str2num(bestfeat{3,1}(10:12))==str2num(bestfeat{1,1}(10:12))) && (str2num(bestfeat{3,1}(32:34))==str2num(bestfeat{1,1}(32:34)))
+%         bestfeat{3,1}=binarycorr_info{temp(end-counter)};
+%         counter=counter+1;
+%     end
+    
+    
+
+    save(['BestFeatures\sbj',num2str( SSID(indx,1),'%02.f')],'bestfeat');
+end
